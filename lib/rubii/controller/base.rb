@@ -72,9 +72,9 @@ module Rubii
 
       class Config
         attr_reader :name, :value
-        attr_accessor :min, :max, :trim, :debounce
-        def initialize name, min=nil, max=nil, trim=0, debounce=0, value=0
-          @name, @min, @max, @trim, @debounce = name, min, max, trim, debounce
+        attr_accessor :min, :max, :trim, :debounce, :normal
+        def initialize name, normal=0, min=nil, max=nil, trim=0, debounce=0, value=0
+          @name, @normal, @min, @max, @trim, @debounce = name, normal, min, max, trim, debounce
         end 
 
         def set_value amt
@@ -85,8 +85,11 @@ module Rubii
       end
       
       class XYAxis < Axis
-        attr_reader :x, :y
+        attr_reader :x, :y, :ref_up, :ref_down
         def initialize x, y, *o
+          @ref_up   = Vector[0,-1,0]
+          @ref_left = Vector[1,0,0]
+          
           i = -1
           super *[x, y].map do |av| i+=1; Config.new([:x,:y][i], *[x,y][i]) end.push(*o)
         end
@@ -99,9 +102,13 @@ module Rubii
       end
       
       class XYZAxis < XYAxis
-        attr_reader :z
+        attr_reader :z, :ref_in, :ref_out
         def initialize x,y,z *o
           super x,y,*o
+          
+          @ref_in   = Vector[0,-1,0]
+          @ref_out  = Vector[1,0,0]
+          
           axi[2] = Config.new(:z, *z)
         end
         
@@ -152,7 +159,24 @@ module Rubii
       end
 
       def high
-  
+        acc_vec = (Vector.elements(values, true) - Vector[*axi.map do |a| a.normal end]).normalize
+        vert    = acc_vec.inner_product @ref_up
+        horiz   = acc_vec.inner_product @ref_left
+        
+        a = []
+        
+        if vert < -0.5
+          a << :down
+        elsif vert > 0.5
+          a << :up
+        end
+        
+        if horiz < -0.5
+          a << :left
+        elsif horiz > 0.5
+          a << :right
+        end        
+        a
       end
 
       def on_change &b

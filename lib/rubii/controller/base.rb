@@ -73,11 +73,13 @@ module Rubii
       class Config
         attr_reader :name, :value
         attr_accessor :min, :max, :trim, :debounce
-        def initialize name, min, max, trim, debounce, value=0
+        def initialize name, min=nil, max=nil, trim=0, debounce=0, value=0
           @name, @min, @max, @trim, @debounce = name, min, max, trim, debounce
         end 
 
         def set_value amt
+          amt = axi[i].max if max and v > max
+          amt = axi[i].min if min and v < min
           @value = amt
         end
       end
@@ -125,9 +127,7 @@ module Rubii
         @values = values.map do |v|
           i+=1
 
-          v = axi[i].trim
-          v = axi[i].max if v > axi[i].max
-          v = axi[i].min if v < axi[i].min
+          v = v - axi[i].trim
         end  
       end
 

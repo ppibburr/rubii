@@ -29,9 +29,10 @@ module Rubii
         end
       end
 
-      class IR < XYAxis
+      # Size reported as 'z'
+      class IR < XYZAxis
         def initialize controller, update_rate = -1
-          super [10,1070,0,1], [10,760,100,1], controller, update_rate
+          super [10,1070,0,1], [10,760,100,1], [], controller, update_rate
         end
         
         def read

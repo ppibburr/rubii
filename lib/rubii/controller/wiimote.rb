@@ -18,21 +18,33 @@ module Rubii
       class Buttons < Rubyii::Controller::Buttons
       end
 
-      class Acc < Axis
+      class Acc < XYZAxis
+        def initialize controller, update_rate = -1
+          super [2,48,100,1], [2,48,100,1], [2,48,100,1], controller, update_rate
+        end
+         
         def read
           @values = controller.state.acc || @values || [0,0,0]
           super
         end
       end
 
-      class IR < Axis
+      class IR < XYAxis
+        def initialize controller, update_rate = -1
+          super [10,1070,0,1], [10,760,100,1], controller, update_rate
+        end
+        
         def read
           @values = controller.state.ir[0] || @values || [0,0,0]
           super
         end
       end
 
-      class Nunchuk < Axis
+      class Nunchuk < XYZAxis
+        def initialize controller, update_rate = -1
+          super [2,48,100,1], [2,48,100,1], [2,48,100,1], controller, update_rate
+        end
+        
         def read
           @values = controller.state.nunchuk || @values || [0,0,0]
           super
@@ -46,9 +58,9 @@ module Rubii
 
         @buttons       = Buttons.new
 
-        @axi[:acc]     = Acc.new
-        @axi[:ir]      = IR.new
-        @axi[:nunchuk] = Nunchuk.new
+        @axi[:acc]     = Acc.new self
+        @axi[:ir]      = IR.new self
+        @axi[:nunchuk] = Nunchuk.new self
       end
 
       def update

@@ -2,9 +2,10 @@ module Rubii
   module Controller
     class Component
       attr_accessor :update_rate
-      attr_reader :values
+      attr_reader :values, :controller
 
-      def initialize update_rate=-1
+      def initialize controller, update_rate=-1
+        @controller = controller
         @update_rate = update_rate
         @values      = []
       end
@@ -72,7 +73,7 @@ module Rubii
       class Config
         attr_reader :name, :value
         attr_accessor :min, :max, :trim, :debounce
-        def initialize name, min, max, trim, debounce
+        def initialize name, min, max, trim, debounce, value=0
           @name, @min, @max, @trim, @debounce = name, min, max, trim, debounce
         end 
 

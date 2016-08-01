@@ -81,6 +81,29 @@ module Rubii
           @value = amt
         end
       end
+      
+      class XYAxis < Axis
+        attr_reader :x, :y
+        def initialize axi_val, *o
+          i = -1
+          super *axi_val.map do |av| i+=1; Config.new([:x,:y,:x][i], *av) end.push(*o)
+        end
+        
+        def update
+          return unless super
+          @x, @y = axi[0..1].map do |a| a.value end
+          true
+        end
+      end
+      
+      class XYZAxis < XYAxis
+        attr_reader :z
+        def update
+          return unless super
+          @z = axi[2]
+          true
+        end        
+      end
 
       attr_reader axi, :change
 

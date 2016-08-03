@@ -3,15 +3,15 @@ module Rubii
     class TapEvent < InputEvent
       include AxisEvent
 
-      def perform x=@x, y=@y
+      def perform driver=@driver, x=@x, y=@y
         return unless super
-        tap(x, y)
+        driver.tap(x, y)
       end
     end
 
     class LongTapEvent < TapEvent
-      def tap(x, y)
-        longtap x,y
+      def tap(driver=@driver, x=@x, y=@y)
+        driver.longtap x,y
       end
     end
 
@@ -23,18 +23,18 @@ module Rubii
         @x1,@y1 = x1,y1
       end
 
-      def perform x=@x, y=@y, x1=@x1, y1=@y1
+      def perform , driver=@driver, x=@x, y=@y, x1=@x1, y1=@y1
         return unless super and (x1 and y1)
 
-        sendswipe x,y,x1,y1
+        driver.sendswipe x,y,x1,y1
       end
     end
 
     class RollEvent < InputEvent
-      def perform x=@x, y=@y
+      def perform driver=@driver, x=@x, y=@y
         return unless super
 
-        sendroll x, y
+        driver.sendroll x, y
       end
     end
   end

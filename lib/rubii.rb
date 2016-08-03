@@ -1,3 +1,7 @@
+begin
+  require 'rubygems'
+rescue; end
+
 $: << dir=File.expand_path(File.dirname(__FILE__))
 $: << File.join(dir, "rubii")
 
@@ -6,9 +10,9 @@ module Rubii
   Config  = {}
 end
 
-require "ruby/events/base"
-require "ruby/input/base"
-require "ruby/controller/base"
-require "ruby/device/base"
-require "ruby/config/defaults"
+require "rubii/events/base"
+require "rubii/input/base"
+require "rubii/controller/base"
+require "rubii/device/base"
+require "rubii/config/defaults"
 

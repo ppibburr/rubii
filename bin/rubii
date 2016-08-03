@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+require_relative "../lib/rubii"
+
+loop do
+begin
+if ARGV[0] == "linux"
+  require "rubii/input/linux"
+
+  if ARGV[1] == "wiimote"
+    li = Rubii::Linux::XDoTool::WiiMote.new
+    li.run 0.111
+  end
+elsif ARGV[0] == "android_adb"
+  require "rubii/input/android_adb"
+  
+  if ARGV[1] == "wiimote"
+    puts "Rubii WiiMote AndroidADB LAUNCH!"
+    li = Rubii::AndroidADB::WiiMote.new
+    li.run 0.111
+  end  
+end
+rescue => e
+  puts e
+end
+end

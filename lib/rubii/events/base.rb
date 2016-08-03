@@ -1,24 +1,26 @@
 module Rubii
   class InputEvent
-    def initialize
-
+    attr_accessor :driver
+    def initialize driver=nil
+      @driver = driver
     end
 
-    def perform
+    def perform driver=@driver, *o
       true
     end
   end
 
   NullEvent = InputEvent.new
   
-class KeyEvent < InputEvent
+  class KeyEvent < InputEvent
     attr_reader :key
-    def initialize key
+    def initialize key, driver = nil
       @key = key
+      super driver
     end
 
-    def perform key = @key
-      sendkey key
+    def perform  driver=@driver, key = @key
+      driver.sendkey key
     end
   end
 
@@ -30,10 +32,10 @@ class KeyEvent < InputEvent
       super *o
     end
 
-    def perform x=@x, y=@y
+    def perform driver=@driver, x=@x, y=@y, *o
       return unless x and y
 
-      super()
+      super(driver)
 
       return true
     end
@@ -41,55 +43,61 @@ class KeyEvent < InputEvent
 
   class TextInputEvent < InputEvent
     attr_accessor :text
-    def perform text=@text
+    def perform driver=@driver, text=@text
       return unless text
-      sendtext text
+      driver.sendtext text
     end
   end
 
   class DeviceEvent < InputEvent
     attr_reader :actions, :device
-    def initialize device, actions=[[0,0,0]]
+    def initialize device = "/dev/input/event3", actions=[[0,0,0]], *o
       @device  = device
       @actions = actions
+      super *o
     end
 
-    def perform
+    def perform driver=@driver
       actions.each do |a|
-        sendevent "#{device} a.join(" ")"
+        driver.sendevent "#{device} #{a.join(" ")}"
       end
 
-      sendevent "#{device} 0 0 0"
+      driver.sendevent "#{device} 0 0 0"
     end
   end
 
-  class MotionEvent < InputEvent
+  class MotionEvent < DeviceEvent
     include AxisEvent
 
     attr_reader :device
 
-    def perform x = @x, y = @y
+   def initialize device, sx=1,sy=1
+     super device
+     @sx, @sy = sx,sy
+   end
+
+    def perform driver=@driver, x = @x, y = @y, *o
       return unless super
 
-      sendevent "#{device} 2 0 #{x}"
-      sendevent "#{device} 0 0 0"
+      driver.sendevent "#{device} 2 0 #{x*@sx}"
+      driver.sendevent "#{device} 0 0 0"
 
-      sendevent "#{device} 2 1 #{y}"
-      sendevent "#{device} 0 0 0"
+      driver.sendevent "#{device} 2 1 #{y*@sy}"
+      driver.sendevent "#{device} 0 0 0"
     end
   end
 
 
   class AppLaunchEvent < InputEvent
-    def initialize app=nil
+    def initialize app=nil, *o
       @app = app
-      super()
+      super(*o)
     end
 
-    def perform app=@app
+    def perform driver=@driver, app=@app
       return unless app
 
-      launch(app)
+      driver.launch(app)
     end
   end
 end

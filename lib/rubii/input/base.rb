@@ -1,5 +1,5 @@
 module Rubii
-  module Input
+  class Input
     def sendevent evt
 
     end
@@ -18,41 +18,49 @@ module Rubii
   end
   
   class InputDevice
-    def initialize cfg = Rubii::Config[:default]
-      cfg[:buttons].keys.each_pair do |b, map|
-        map.each_pair do |k, evt|
-          evt.extend AndroidADB::Input
+    attr_reader :controller, :driver, :config
+    def initialize controller, driver, cfg = Rubii::Config[:default]
+      @controller = controller
+      @driver     = driver
+      @config     = cfg
+      
+      cfg.each_pair do |n, c|
+        c[:digital].each_pair do |v, h|
+          [revt = h[:rise],
+          fevt = h[:fall]].each do |e| 
+            if e.respond_to? :"controller="
+              e.controller = controller
+            end
+          end
+          
+          controller.components[n].on_rise v do revt.perform(driver) end
+          controller.components[n].on_fall v do fevt.perform(driver) end
         end
-
-        buttons.on_press b do
-          cfg[:buttons][b][:press].perform
+        
+        next unless controller.components[n].respond_to?(:on_change)
+        
+        if c[:change].respond_to? :controller
+          c[:change].controller = controller
         end
-
-        buttons.on_release b do
-          cfg[:buttons][b][:release].perform
+        
+        controller.components[n].on_change do |*o| 
+          c[:change].perform(*[driver].push(*o)) 
         end
+      end 
+      
+      def update
+        controller.update
       end
-
-      cfg[:axi].keys.each do |a|
-        cfg[:axi][a][:change].extend AndroidADB::Input
-
-        axi[a].on_change do |*values|
-          evt = cfg[:axi][a][:change]
-          evt.perform values[0..evt.method(:perform).arity-1]
-        end
-
-        axi[a][:digital].each_pair do |k, dir|
-          [dir[:rise], dir[:fall].each do |evt|
-            evt.extend AndroidADB::Input
-          end
-   
-          axi[a].on_digital_rise k do
-            dir[:rise].perform
-          end
-
-          axi[a].on_digital_fall k do
-            dir[:fall].perform
-          end
+      
+      def dump
+        controller.dump
+      end
+      
+      def run i=0.111
+        loop do
+          update
+          print "\r"+"#{dump}" if ARGV[2] == "dump"
+          sleep i
         end
       end
     end

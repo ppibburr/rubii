@@ -1,3 +1,5 @@
+require 'matrix'
+
 module Rubii
   module Controller
     class Component
@@ -18,20 +20,31 @@ module Rubii
       def read
         []
       end
+      
+      def dump
+        ""
+      end
     end
 
     module Digital
+      def initialize *o
+        super
+        
+        @on_rise = {}
+        @on_fall = {}
+      end
+    
       def compare a, b
         a.find_all do |v|
           !b.index(v)
         end.each do |d|
-          on_release d
+          on_fall d
         end
 
         b.find_all do |v|
           !a.index(v)
         end.each do |d|
-          on_press d
+          on_rise d
         end
       end
 
@@ -49,16 +62,34 @@ module Rubii
         return true
       end
 
-      def on_digital_rise q, &b
-
+      def on_rise q, &b
+        if b
+          @on_rise[q] = b
+          return
+        end
+        
+        if cb = @on_rise[q]
+          cb.call
+        end
       end
 
-      def on_digital_fall q, &b
-
+      def on_fall q, &b
+        if b
+          @on_fall[q] = b
+          return
+        end
+        
+        if cb = @on_fall[q]
+          cb.call
+        end
+      end
+      
+      def dump
+        (super + " high:#{high}").strip
       end
 
-      alias :on_press :on_digital_rise
-      alias :on_release :on_digital_fall
+      alias :on_press :on_rise
+      alias :on_release :on_fall
     end
 
     class Buttons < Component
@@ -78,70 +109,49 @@ module Rubii
         end 
 
         def set_value amt
-          amt = axi[i].max if max and v > max
-          amt = axi[i].min if min and v < min
+          amt = amt - trim
+          amt = max if max and amt > max
+          amt = min if min and amt < min
           @value = amt
         end
       end
       
-      class XYAxis < Axis
-        attr_reader :x, :y, :ref_up, :ref_down
-        def initialize x, y, *o
-          @ref_up   = Vector[0,-1,0]
-          @ref_left = Vector[1,0,0]
-          
-          i = -1
-          super *[x, y].map do |av| i+=1; Config.new([:x,:y][i], *[x,y][i]) end.push(*o)
-        end
-        
-        def update
-          return unless super
-          @x, @y = axi[0..1].map do |a| a.value end
-          true
-        end
-      end
-      
-      class XYZAxis < XYAxis
-        attr_reader :z, :ref_in, :ref_out
-        def initialize x,y,z *o
-          super x,y,*o
-          
-          @ref_in   = Vector[0,-1,0]
-          @ref_out  = Vector[1,0,0]
-          
-          axi[2] = Config.new(:z, *z)
-        end
-        
-        def update
-          return unless super
-          @z = axi[2]
-          true
-        end        
-      end
 
-      attr_reader axi, :change
+      attr_reader :axi, :change
 
       def initialize axi, *o
         super *o
+        @values = nil
+        @change = []
         @axi = axi
       end
       
-      def read
-        super
-        
+      def direction_name d
+        return nil unless d.is_a?(Integer)
+        return nil if d == 0
+        if d < 0
+            return [:left, :up, :in][d.abs-1] 
+        end
+        if d > 0
+            return [:right, :down, :out][d.abs-1] 
+        end
+      end
+
+      def ref
         i = -1
-
-        @values = values.map do |v|
+        @ref ||= axi.map do |a| 
           i+=1
-
-          v = v - axi[i].trim
-        end  
+          pv = axi.map do 0 end
+          pv[i] = 1
+            
+          Vector[*pv]
+        end
       end
 
       def update
-        o = axi.map do |a| a.value end
+        o = axi.map do |a| a.value || a.normal end
         super
-         
+
         bool = false
         
         ca = axi.map do 0 end
@@ -149,55 +159,115 @@ module Rubii
           axi[i].set_value v
           if axi[i].value != o[i]
             bool = true
-            ca[i] = o[i] - axi[i].value
+            c = o[i] - axi[i].value
+            ca[i] = c if c.abs > axi[i].debounce
           end
         end
+
+        @change = ca
 
         if bool
           on_change
         end
+        
+        true
       end
 
       def high
-        acc_vec = (Vector.elements(values, true) - Vector[*axi.map do |a| a.normal end]).normalize
-        vert    = acc_vec.inner_product @ref_up
-        horiz   = acc_vec.inner_product @ref_left
+        q = axi.map do |a| a.normal end
         
-        a = []
-        
-        if vert < -0.5
-          a << :down
-        elsif vert > 0.5
-          a << :up
+        acc_vec = begin
+          (Vector.elements(values, true) - Vector[*q]).normalize
+        rescue
+          Vector[0, 0, 0]
         end
         
-        if horiz < -0.5
-          a << :left
-        elsif horiz > 0.5
-          a << :right
-        end        
-        a
+        i = -1
+        axi.map do |a|
+          i += 1
+          q = acc_vec.inner_product(ref[i])
+          if qi=[q < -0.5, q > 0.5].index(true)
+            [i+1, (i+1)*-1][qi]
+          else
+          end
+        end.find_all do |q| !!q end
       end
+      
+      def on_digital_fall d=nil, &b
+        super direction_name(d), &b
+      end
+      
+      def on_digital_rise d=nil, &b
+        super direction_name(d), &b
+      end      
 
       def on_change &b
-        @on_change.call *change
+        if b
+          @on_change = b
+          return
+        end
+        
+        @on_change.call *change if @on_change
+      end
+      
+      def values
+        @values ||= axi.map do |a| a.normal end
+      end
+      
+      def dump
+        super + " raw:#{values} change:#{change}"
+      end
+    end
+
+    class XYAxis < Axis
+      attr_reader :x, :y
+      def initialize x, y, *o          
+  
+        super([Axis::Config.new(:x, *x), Axis::Config.new(:y, *y)], *o)
+      end
+      
+      def update
+        return unless super
+        @x, @y = axi[0..1].map do |a| a.value end
+        true
+      end
+      
+      def dump
+        super + " xy:#{[x,y]}"
+      end
+    end
+    
+    class XYZAxis < XYAxis
+      attr_reader :z
+      def initialize x,y,z, *o
+        super x,y,*o
+        
+        axi[2] = Axis::Config.new(:z, *z)
+      end
+      
+      def update
+        return unless super
+        @z = axi[2].value
+        true
+      end        
+      
+      def dump
+        super + " z:#{z}"
       end
     end
 
     class Base
-      attr_reader :buttons, :axi
-      def initialize
-        @buttons = nil
-        @axi     = {}
+      attr_reader :components
+      def initialize components
+        @components = components
       end
 
       def update
-        @buttons.update
-        @axi.each_pair do |a, c| c.update end
+        components.map do |n, c| c.update end
       end
 
       def dump
-        "#{self}\n  "+[buttons.dump].push(*axi.map do |n, a| ({n => a.dump}.to_s) end).join("\n  ")
+        components.map do |n, c| "#{n}: " + c.dump end.join(" | ")
       end
     end
   end
